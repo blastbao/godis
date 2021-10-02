@@ -25,19 +25,26 @@ var defaultProperties = &config.ServerProperties{
 	MaxClients:     1000,
 }
 
+
+// 检查文件是否存在
 func fileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	return err == nil && !info.IsDir()
 }
 
 func main() {
+	// 打印 logo
 	print(banner)
+
+	// 初始化日志
 	logger.Setup(&logger.Settings{
 		Path:       "logs",
 		Name:       "godis",
 		Ext:        "log",
 		TimeFormat: "2006-01-02",
 	})
+
+	// 加载配置文件
 	configFilename := os.Getenv("CONFIG")
 	if configFilename == "" {
 		if fileExists("redis.conf") {
@@ -49,10 +56,14 @@ func main() {
 		config.SetupConfig(configFilename)
 	}
 
-	err := tcp.ListenAndServeWithSignal(&tcp.Config{
-		Address: fmt.Sprintf("%s:%d", config.Properties.Bind, config.Properties.Port),
-	}, RedisServer.MakeHandler())
-	if err != nil {
+	// 启动网络服务
+	if err := tcp.ListenAndServeWithSignal(
+		&tcp.Config{
+			Address: fmt.Sprintf("%s:%d", config.Properties.Bind, config.Properties.Port),
+		},
+		RedisServer.MakeHandler(),
+	); err != nil {
 		logger.Error(err)
 	}
+
 }

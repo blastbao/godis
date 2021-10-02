@@ -54,9 +54,15 @@ func (h *EchoHandler) Handle(ctx context.Context, conn net.Conn) {
 
 	reader := bufio.NewReader(conn)
 	for {
+
 		// may occurs: client EOF, client timeout, server early close
+		//
+		// ReadString 会一直阻塞直到遇到分隔符 '\n'
+		// 遇到分隔符后 ReadString 会返回上次遇到分隔符到现在收到的所有数据
+		// 若在遇到分隔符之前发生异常, ReadString 会返回已收到的数据和错误信息
 		msg, err := reader.ReadString('\n')
 		if err != nil {
+			// 通常遇到的错误是连接中断或被关闭，用 io.EOF 表示
 			if err == io.EOF {
 				logger.Info("connection close")
 				h.activeConn.Delete(client)
@@ -65,11 +71,12 @@ func (h *EchoHandler) Handle(ctx context.Context, conn net.Conn) {
 			}
 			return
 		}
+
 		client.Waiting.Add(1)
 		//logger.Info("sleeping")
 		//time.Sleep(10 * time.Second)
-		b := []byte(msg)
-		_, _ = conn.Write(b)
+		// 将收到的信息发送给客户端
+		_, _ = conn.Write([]byte(msg))
 		client.Waiting.Done()
 	}
 }

@@ -14,7 +14,7 @@ import (
 type ServerProperties struct {
 	Bind           string `cfg:"bind"`
 	Port           int    `cfg:"port"`
-	AppendOnly     bool   `cfg:"appendOnly"`
+	AppendOnly     bool   `cfg:"appendOnly"`		//
 	AppendFilename string `cfg:"appendFilename"`
 	MaxClients     int    `cfg:"maxclients"`
 	RequirePass    string `cfg:"requirepass"`
@@ -25,6 +25,7 @@ type ServerProperties struct {
 }
 
 // Properties holds global config properties
+// 全局配置
 var Properties *ServerProperties
 
 func init() {

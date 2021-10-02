@@ -52,6 +52,8 @@ func (m *Map) AddNode(keys ...string) {
 }
 
 // support hash tag
+//
+// 提取 key 中由 "{}" 扩起来的部分，作为 Partition Key 。
 func getPartitionKey(key string) string {
 	beg := strings.Index(key, "{")
 	if beg == -1 {
@@ -70,16 +72,22 @@ func (m *Map) PickNode(key string) string {
 		return ""
 	}
 
+	// 提取分区 key
 	partitionKey := getPartitionKey(key)
+
+	// 计算 Hash 值
 	hash := int(m.hashFunc([]byte(partitionKey)))
 
 	// Binary search for appropriate replica.
+	// 二分查找，找到其归属的区间
 	idx := sort.Search(len(m.keys), func(i int) bool { return m.keys[i] >= hash })
 
 	// Means we have cycled back to the first replica.
+	// 没有找到，重置为 0
 	if idx == len(m.keys) {
 		idx = 0
 	}
 
+	// 返回区间
 	return m.hashMap[m.keys[idx]]
 }

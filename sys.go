@@ -19,17 +19,25 @@ func Ping(db *DB, args [][]byte) redis.Reply {
 
 // Auth validate client's password
 func Auth(c redis.Connection, args [][]byte) redis.Reply {
+	// 参数检查
 	if len(args) != 1 {
 		return reply.MakeErrReply("ERR wrong number of arguments for 'auth' command")
 	}
+
 	if config.Properties.RequirePass == "" {
 		return reply.MakeErrReply("ERR Client sent AUTH, but no password is set")
 	}
+
+	// 保存密码
 	passwd := string(args[0])
 	c.SetPassword(passwd)
+
+	// 校验密码
 	if config.Properties.RequirePass != passwd {
 		return reply.MakeErrReply("ERR invalid password")
 	}
+
+	// 鉴权成功
 	return &reply.OkReply{}
 }
 

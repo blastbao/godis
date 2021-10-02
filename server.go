@@ -16,11 +16,14 @@ import (
 	"time"
 )
 
+
+
 type MultiDB struct {
 	dbSet []*DB
 
 	// handle publish/subscribe
 	hub *pubsub.Hub
+
 	// handle aof persistence
 	aofHandler *aof.Handler
 }
@@ -28,16 +31,24 @@ type MultiDB struct {
 // NewStandaloneServer creates a standalone redis server, with multi database and all other funtions
 func NewStandaloneServer() *MultiDB {
 	mdb := &MultiDB{}
+
+	// 默认的 dbs 数目
 	if config.Properties.Databases == 0 {
 		config.Properties.Databases = 16
 	}
+
+	// 初始化 dbs
 	mdb.dbSet = make([]*DB, config.Properties.Databases)
 	for i := range mdb.dbSet {
 		singleDB := makeDB()
 		singleDB.index = i
 		mdb.dbSet[i] = singleDB
 	}
+
+	// 初始化 hub
 	mdb.hub = pubsub.MakeHub()
+
+	// 初始化 aof
 	if config.Properties.AppendOnly {
 		aofHandler, err := aof.NewAOFHandler(mdb, func() database.EmbedDB {
 			return MakeBasicMultiDB()
@@ -47,13 +58,13 @@ func NewStandaloneServer() *MultiDB {
 		}
 		mdb.aofHandler = aofHandler
 		for _, db := range mdb.dbSet {
-			// avoid closure
-			singleDB := db
-			singleDB.addAof = func(line CmdLine) {
-				mdb.aofHandler.AddAof(singleDB.index, line)
+			db := db // avoid closure
+			db.addAof = func(line CmdLine) {
+				mdb.aofHandler.AddAof(db.index, line)
 			}
 		}
 	}
+
 	return mdb
 }
 
@@ -70,6 +81,7 @@ func MakeBasicMultiDB() *MultiDB {
 // Exec executes command
 // parameter `cmdLine` contains command and its arguments, for example: "set key value"
 func (mdb *MultiDB) Exec(c redis.Connection, cmdLine [][]byte) (result redis.Reply) {
+	// 捕获 Panic
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Warn(fmt.Sprintf("error occurs: %v\n%s", err, string(debug.Stack())))
@@ -77,16 +89,21 @@ func (mdb *MultiDB) Exec(c redis.Connection, cmdLine [][]byte) (result redis.Rep
 		}
 	}()
 
+	// 忽略大小写
 	cmdName := strings.ToLower(string(cmdLine[0]))
-	// authenticate
+
+	// 鉴权
 	if cmdName == "auth" {
 		return Auth(c, cmdLine[1:])
 	}
+
+	// 鉴权
 	if !isAuthenticated(c) {
 		return reply.MakeErrReply("NOAUTH Authentication required")
 	}
 
 	// special commands
+	// 特殊命令
 	if cmdName == "subscribe" {
 		if len(cmdLine) < 2 {
 			return reply.MakeArgNumErrReply("subscribe")
@@ -112,14 +129,20 @@ func (mdb *MultiDB) Exec(c redis.Connection, cmdLine [][]byte) (result redis.Rep
 		}
 		return execSelect(c, mdb, cmdLine[1:])
 	}
+
 	// todo: support multi database transaction
 
 	// normal commands
+	// 普通命令
+
+	// 选择 DB
 	dbIndex := c.GetDBIndex()
 	if dbIndex >= len(mdb.dbSet) {
 		return reply.MakeErrReply("ERR DB index is out of range")
 	}
 	selectedDB := mdb.dbSet[dbIndex]
+
+	// 执行命令
 	return selectedDB.Exec(c, cmdLine)
 }
 
@@ -136,14 +159,21 @@ func (mdb *MultiDB) Close() {
 }
 
 func execSelect(c redis.Connection, mdb *MultiDB, args [][]byte) redis.Reply {
+	// 参数解析
 	dbIndex, err := strconv.Atoi(string(args[0]))
 	if err != nil {
 		return reply.MakeErrReply("ERR invalid DB index")
 	}
+
+	// 参数检查
 	if dbIndex >= len(mdb.dbSet) {
 		return reply.MakeErrReply("ERR DB index is out of range")
 	}
+
+	// 更新 session
 	c.SelectDB(dbIndex)
+
+	// 返回 ok
 	return reply.MakeOkReply()
 }
 

@@ -82,8 +82,12 @@ func parse0(reader io.Reader, ch chan<- *Payload) {
 	var err error
 	var msg []byte
 	for {
+
 		// read line
 		var ioErr bool
+
+
+
 		msg, ioErr, err = readLine(bufReader, &state)
 		if err != nil {
 			if ioErr { // encounter io err, stop read

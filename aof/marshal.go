@@ -91,9 +91,11 @@ func hashToCmd(key string, hash dict.Dict) *reply.MultiBulkReply {
 var zAddCmd = []byte("ZADD")
 
 func zSetToCmd(key string, zset *SortedSet.SortedSet) *reply.MultiBulkReply {
+
 	args := make([][]byte, 2+zset.Len()*2)
 	args[0] = zAddCmd
 	args[1] = []byte(key)
+
 	i := 0
 	zset.ForEach(int64(0), int64(zset.Len()), true, func(element *SortedSet.Element) bool {
 		value := strconv.FormatFloat(element.Score, 'f', -1, 64)
@@ -102,12 +104,15 @@ func zSetToCmd(key string, zset *SortedSet.SortedSet) *reply.MultiBulkReply {
 		i++
 		return true
 	})
+
 	return reply.MakeMultiBulkReply(args)
 }
 
 var pExpireAtBytes = []byte("PEXPIREAT")
 
 // MakeExpireCmd generates command line to set expiration for the given key
+//
+//
 func MakeExpireCmd(key string, expireAt time.Time) *reply.MultiBulkReply {
 	args := make([][]byte, 3)
 	args[0] = pExpireAtBytes

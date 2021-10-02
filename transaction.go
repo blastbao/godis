@@ -152,16 +152,18 @@ func DiscardMulti(conn redis.Connection) redis.Reply {
 
 // GetUndoLogs return rollback commands
 func (db *DB) GetUndoLogs(cmdLine [][]byte) []CmdLine {
+	// 查找命令
 	cmdName := strings.ToLower(string(cmdLine[0]))
 	cmd, ok := cmdTable[cmdName]
 	if !ok {
 		return nil
 	}
-	undo := cmd.undo
-	if undo == nil {
+	// 是否支持回滚
+	if cmd.undo == nil {
 		return nil
 	}
-	return undo(db, cmdLine[1:])
+	// 返回回滚命令
+	return cmd.undo(db, cmdLine[1:])
 }
 
 // execWithLock executes normal commands, invoker should provide locks

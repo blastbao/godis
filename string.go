@@ -47,12 +47,16 @@ const unlimitedTTL int64 = 0
 
 // execSet sets string value and time to live to the given key
 func execSet(db *DB, args [][]byte) redis.Reply {
+
+
+
 	key := string(args[0])
 	value := args[1]
 	policy := upsertPolicy
 	ttl := unlimitedTTL
 
 	// parse options
+	// 解析选项
 	if len(args) > 2 {
 		for i := 2; i < len(args); i++ {
 			arg := strings.ToUpper(string(args[i]))
@@ -119,13 +123,18 @@ func execSet(db *DB, args [][]byte) redis.Reply {
 	case updatePolicy:
 		result = db.PutIfExists(key, entity)
 	}
+
 	/*
-	 *   如果设置了ttl 则以最新的ttl为准
-	 *   如果没有设置ttl 是新增key的情况，不设置ttl。
-	 *   如果没有设置ttl 且已存在key的 不修改ttl 但需要增加aof
+	 *   如果设置了 ttl 则以最新的 ttl 为准
+	 *   如果没有设置 ttl 是新增 key 的情况，不设置 ttl 。
+	 *   如果没有设置 ttl 且已存在 key 的 不修改 ttl 但需要增加 aof
 	 */
+
+	// 使用了 EX 或 NX 选项
 	if ttl != unlimitedTTL {
+		// 计算过期绝对时间
 		expireTime := time.Now().Add(time.Duration(ttl) * time.Millisecond)
+		//
 		db.Expire(key, expireTime)
 		db.addAof(CmdLine{
 			[]byte("SET"),

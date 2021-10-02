@@ -2,14 +2,15 @@ package cluster
 
 import (
 	"fmt"
+	"strconv"
+	"sync"
+	"time"
+
 	"github.com/hdt3213/godis"
 	"github.com/hdt3213/godis/interface/redis"
 	"github.com/hdt3213/godis/lib/logger"
 	"github.com/hdt3213/godis/lib/timewheel"
 	"github.com/hdt3213/godis/redis/reply"
-	"strconv"
-	"sync"
-	"time"
 )
 
 // Transaction stores state and data for a try-commit-catch distributed transaction

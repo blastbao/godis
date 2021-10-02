@@ -1,0 +1,8 @@
+# github.com/jolestar/go-commons-pool/v2 v2.1.1
+## explicit
+github.com/jolestar/go-commons-pool/v2
+github.com/jolestar/go-commons-pool/v2/collections
+github.com/jolestar/go-commons-pool/v2/concurrent
+# github.com/shopspring/decimal v1.2.0
+## explicit
+github.com/shopspring/decimal

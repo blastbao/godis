@@ -8,8 +8,9 @@ import (
 	"time"
 )
 
-// Connection represents a connection with a redis-cli
-type Connection struct {
+// Session represents a connection with a redis-cli
+type Session struct {
+
 	conn net.Conn
 
 	// waiting until reply finished
@@ -34,53 +35,62 @@ type Connection struct {
 }
 
 // RemoteAddr returns the remote network address
-func (c *Connection) RemoteAddr() net.Addr {
+func (c *Session) RemoteAddr() net.Addr {
 	return c.conn.RemoteAddr()
 }
 
 // Close disconnect with the client
-func (c *Connection) Close() error {
+func (c *Session) Close() error {
 	c.waitingReply.WaitWithTimeout(10 * time.Second)
 	_ = c.conn.Close()
 	return nil
 }
 
-// NewConn creates Connection instance
-func NewConn(conn net.Conn) *Connection {
-	return &Connection{
+// NewConn creates Session instance
+func NewConn(conn net.Conn) *Session {
+	return &Session{
 		conn: conn,
 	}
 }
 
 // Write sends response to client over tcp connection
-func (c *Connection) Write(b []byte) error {
+func (c *Session) Write(b []byte) error {
+	// 参数检查
 	if len(b) == 0 {
 		return nil
 	}
+
+	// 并发写加锁
 	c.mu.Lock()
+
+	// 正在发送的请求数 +1
 	c.waitingReply.Add(1)
 	defer func() {
+		// 正在发送的请求数 -1
 		c.waitingReply.Done()
+		// 解锁
 		c.mu.Unlock()
 	}()
 
+	// 发送请求
 	_, err := c.conn.Write(b)
 	return err
 }
 
 // Subscribe add current connection into subscribers of the given channel
-func (c *Connection) Subscribe(channel string) {
+func (c *Session) Subscribe(channel string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.subs == nil {
 		c.subs = make(map[string]bool)
 	}
+
 	c.subs[channel] = true
 }
 
 // UnSubscribe removes current connection into subscribers of the given channel
-func (c *Connection) UnSubscribe(channel string) {
+func (c *Session) UnSubscribe(channel string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -91,12 +101,12 @@ func (c *Connection) UnSubscribe(channel string) {
 }
 
 // SubsCount returns the number of subscribing channels
-func (c *Connection) SubsCount() int {
+func (c *Session) SubsCount() int {
 	return len(c.subs)
 }
 
 // GetChannels returns all subscribing channels
-func (c *Connection) GetChannels() []string {
+func (c *Session) GetChannels() []string {
 	if c.subs == nil {
 		return make([]string, 0)
 	}
@@ -110,20 +120,20 @@ func (c *Connection) GetChannels() []string {
 }
 
 // SetPassword stores password for authentication
-func (c *Connection) SetPassword(password string) {
+func (c *Session) SetPassword(password string) {
 	c.password = password
 }
 
 // GetPassword get password for authentication
-func (c *Connection) GetPassword() string {
+func (c *Session) GetPassword() string {
 	return c.password
 }
 
-func (c *Connection) InMultiState() bool {
+func (c *Session) InMultiState() bool {
 	return c.multiState
 }
 
-func (c *Connection) SetMultiState(state bool) {
+func (c *Session) SetMultiState(state bool) {
 	if !state { // reset data when cancel multi
 		c.watching = nil
 		c.queue = nil
@@ -131,36 +141,37 @@ func (c *Connection) SetMultiState(state bool) {
 	c.multiState = state
 }
 
-func (c *Connection) GetQueuedCmdLine() [][][]byte {
+func (c *Session) GetQueuedCmdLine() [][][]byte {
 	return c.queue
 }
 
-func (c *Connection) EnqueueCmd(cmdLine [][]byte) {
+func (c *Session) EnqueueCmd(cmdLine [][]byte) {
 	c.queue = append(c.queue, cmdLine)
 }
 
-func (c *Connection) ClearQueuedCmds() {
+func (c *Session) ClearQueuedCmds() {
 	c.queue = nil
 }
 
-func (c *Connection) GetWatching() map[string]uint32 {
+func (c *Session) GetWatching() map[string]uint32 {
 	if c.watching == nil {
 		c.watching = make(map[string]uint32)
 	}
 	return c.watching
 }
 
-func (c *Connection) GetDBIndex() int {
+func (c *Session) GetDBIndex() int {
 	return c.selectedDB
 }
 
-func (c *Connection) SelectDB(dbNum int) {
+// SelectDB 保存当前 selectedDB 序号
+func (c *Session) SelectDB(dbNum int) {
 	c.selectedDB = dbNum
 }
 
 // FakeConn implements redis.Connection for test
 type FakeConn struct {
-	Connection
+	Session
 	buf bytes.Buffer
 }
 
