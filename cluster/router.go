@@ -117,8 +117,10 @@ func makeRouter() map[string]CmdFunc {
 }
 
 // relay command to responsible peer, and return its reply to client
+//
+// 集群模式下，除了 MSet、DEL 等特殊指令外，其它指令会交由 defaultFunc 处理。
 func defaultFunc(cluster *Cluster, c redis.Connection, args [][]byte) redis.Reply {
 	key := string(args[1])
-	peer := cluster.peerPicker.PickNode(key)
+	peer := cluster.peerPicker.PickNode(key) // 通过一致性 hash 找到节点
 	return cluster.relay(peer, c, args)
 }

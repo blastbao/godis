@@ -65,5 +65,4 @@ func main() {
 	); err != nil {
 		logger.Error(err)
 	}
-
 }

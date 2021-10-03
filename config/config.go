@@ -20,8 +20,8 @@ type ServerProperties struct {
 	RequirePass    string `cfg:"requirepass"`
 	Databases      int    `cfg:"databases"`
 
-	Peers []string `cfg:"peers"`
-	Self  string   `cfg:"self"`
+	Peers []string `cfg:"peers"`	//
+	Self  string   `cfg:"self"`		//
 }
 
 // Properties holds global config properties

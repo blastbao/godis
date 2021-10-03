@@ -9,20 +9,28 @@ import (
 	"github.com/jolestar/go-commons-pool/v2"
 )
 
+// 实现 pool.PooledObjectFactory 接口，作为协程池的工厂类。
 type connectionFactory struct {
 	Peer string
 }
 
 func (f *connectionFactory) MakeObject(ctx context.Context) (*pool.PooledObject, error) {
+	// 创建同 peer 的 Client
 	c, err := client.MakeClient(f.Peer)
 	if err != nil {
 		return nil, err
 	}
+
+	// 启动 Client
 	c.Start()
+
 	// all peers of cluster should use the same password
+	// 鉴权
 	if config.Properties.RequirePass != "" {
-		c.Send(utils.ToCmdLine("AUTH", config.Properties.RequirePass))
+		_ = c.Send(utils.ToCmdLine("AUTH", config.Properties.RequirePass))
 	}
+
+	//
 	return pool.NewPooledObject(c), nil
 }
 

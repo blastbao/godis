@@ -182,11 +182,14 @@ func (db *DB) execWithLock(cmdLine [][]byte) redis.Reply {
 
 // GetRelatedKeys analysis related keys
 func GetRelatedKeys(cmdLine [][]byte) ([]string, []string) {
+	// 查找命令
 	cmdName := strings.ToLower(string(cmdLine[0]))
 	cmd, ok := cmdTable[cmdName]
 	if !ok {
 		return nil, nil
 	}
+
+	// 执行 prepare ，返回关联的 read/write keys 列表
 	prepare := cmd.prepare
 	if prepare == nil {
 		return nil, nil

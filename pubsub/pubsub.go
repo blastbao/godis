@@ -67,6 +67,7 @@ func unsubscribe0(hub *Hub, channel string, client redis.Connection) bool {
 
 // Subscribe puts the given connection into the given channel
 func Subscribe(hub *Hub, c redis.Connection, args [][]byte) redis.Reply {
+
 	channels := make([]string, len(args))
 	for i, b := range args {
 		channels[i] = string(b)
@@ -99,6 +100,7 @@ func UnsubscribeAll(hub *Hub, c redis.Connection) {
 // UnSubscribe removes the given connection from the given channel
 func UnSubscribe(db *Hub, c redis.Connection, args [][]byte) redis.Reply {
 	var channels []string
+
 	if len(args) > 0 {
 		channels = make([]string, len(args))
 		for i, b := range args {
@@ -126,28 +128,39 @@ func UnSubscribe(db *Hub, c redis.Connection, args [][]byte) redis.Reply {
 
 // Publish send msg to all subscribing client
 func Publish(hub *Hub, args [][]byte) redis.Reply {
+
+	// 参数检查
 	if len(args) != 2 {
 		return &reply.ArgNumErrReply{Cmd: "publish"}
 	}
+
+	// 参数1: 频道
 	channel := string(args[0])
+	// 参数2: 消息
 	message := args[1]
 
+	// 加锁
 	hub.subsLocker.Lock(channel)
 	defer hub.subsLocker.UnLock(channel)
 
+	// 查询频道订阅者
 	raw, ok := hub.subs.Get(channel)
 	if !ok {
 		return reply.MakeIntReply(0)
 	}
+
+	// 遍历订阅者列表，逐个推送消息
 	subscribers, _ := raw.(*list.LinkedList)
 	subscribers.ForEach(func(i int, c interface{}) bool {
 		client, _ := c.(redis.Connection)
 		replyArgs := make([][]byte, 3)
-		replyArgs[0] = messageBytes
-		replyArgs[1] = []byte(channel)
-		replyArgs[2] = message
+		replyArgs[0] = messageBytes		// "message"
+		replyArgs[1] = []byte(channel)	// $channel
+		replyArgs[2] = message			// $message
 		_ = client.Write(reply.MakeMultiBulkReply(replyArgs).ToBytes())
 		return true
 	})
+
+	// 返回订阅者数目
 	return reply.MakeIntReply(int64(subscribers.Len()))
 }

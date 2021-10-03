@@ -29,6 +29,7 @@ type Cluster struct {
 	peerConnection map[string]*pool.ObjectPool
 
 	db           database.EmbedDB
+
 	transactions *dict.SimpleDict // id -> Transaction
 
 	idGenerator *idgenerator.IDGenerator
@@ -44,6 +45,8 @@ var allowFastTransaction = true
 
 // MakeCluster creates and starts a node of cluster
 func MakeCluster() *Cluster {
+
+
 	cluster := &Cluster{
 		self: config.Properties.Self,
 
@@ -54,8 +57,11 @@ func MakeCluster() *Cluster {
 
 		idGenerator: idgenerator.MakeGenerator(config.Properties.Self),
 	}
+
+
 	contains := make(map[string]struct{})
 	nodes := make([]string, 0, len(config.Properties.Peers)+1)
+
 	for _, peer := range config.Properties.Peers {
 		if _, ok := contains[peer]; ok {
 			continue
@@ -63,14 +69,18 @@ func MakeCluster() *Cluster {
 		contains[peer] = struct{}{}
 		nodes = append(nodes, peer)
 	}
+
 	nodes = append(nodes, config.Properties.Self)
 	cluster.peerPicker.AddNode(nodes...)
 	ctx := context.Background()
+
+	// 为每个 peer 创建连接池
 	for _, peer := range config.Properties.Peers {
 		cluster.peerConnection[peer] = pool.NewObjectPoolWithDefaultConfig(ctx, &connectionFactory{
 			Peer: peer,
 		})
 	}
+
 	cluster.nodes = nodes
 	return cluster
 }
@@ -161,10 +171,12 @@ func makeArgs(cmd string, args ...string) [][]byte {
 }
 
 // return peer -> writeKeys
-func (cluster *Cluster) groupBy(keys []string) map[string][]string {
+func (cluster *Cluster) groupKeysByPeer(keys []string) map[string][]string {
 	result := make(map[string][]string)
 	for _, key := range keys {
+		// 查找 key 归属的 peer (一致性哈希)
 		peer := cluster.peerPicker.PickNode(key)
+		// 把 key 添加到 peer 的查询列表中
 		group, ok := result[peer]
 		if !ok {
 			group = make([]string, 0)

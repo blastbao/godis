@@ -19,6 +19,7 @@ func Rename(cluster *Cluster, c redis.Connection, args [][]byte) redis.Reply {
 	if srcPeer != destPeer {
 		return reply.MakeErrReply("ERR rename must within one slot in cluster mode")
 	}
+
 	return cluster.relay(srcPeer, c, args)
 }
 

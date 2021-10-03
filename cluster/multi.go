@@ -38,7 +38,7 @@ func execMulti(cluster *Cluster, conn redis.Connection, cmdLine CmdLine) redis.R
 		// empty transaction or only `PING`s
 		return cluster.db.ExecMulti(conn, watching, cmdLines)
 	}
-	groupMap := cluster.groupBy(keys)
+	groupMap := cluster.groupKeysByPeer(keys)
 	if len(groupMap) > 1 {
 		return reply.MakeErrReply("ERR MULTI commands transaction must within one slot in cluster mode")
 	}

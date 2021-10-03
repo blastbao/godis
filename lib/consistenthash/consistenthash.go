@@ -21,9 +21,9 @@ type Map struct {
 // New creates a new Map
 func New(replicas int, fn HashFunc) *Map {
 	m := &Map{
-		replicas: replicas,
+		replicas: replicas,	// 每个物理节点会产生 replicas 个虚拟节点
 		hashFunc: fn,
-		hashMap:  make(map[int]string),
+		hashMap:  make(map[int]string),// 虚拟节点 hash 值到物理节点地址的映射
 	}
 	if m.hashFunc == nil {
 		m.hashFunc = crc32.ChecksumIEEE
@@ -37,14 +37,18 @@ func (m *Map) IsEmpty() bool {
 }
 
 // AddNode add the given nodes into consistent hash circle
+//
 func (m *Map) AddNode(keys ...string) {
 	for _, key := range keys {
 		if key == "" {
 			continue
 		}
 		for i := 0; i < m.replicas; i++ {
+			// 使用 i + key 作为一个虚拟节点，计算虚拟节点的 hash 值
 			hash := int(m.hashFunc([]byte(strconv.Itoa(i) + key)))
+			// 将虚拟节点添加到环上
 			m.keys = append(m.keys, hash)
+			// 注册虚拟节点到物理节点的映射
 			m.hashMap[hash] = key
 		}
 	}
