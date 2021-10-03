@@ -21,6 +21,8 @@ import (
 
 // Cluster represents a node of godis cluster
 // it holds part of data and coordinates other nodes to finish transactions
+//
+//
 type Cluster struct {
 	self string
 
@@ -45,7 +47,6 @@ var allowFastTransaction = true
 
 // MakeCluster creates and starts a node of cluster
 func MakeCluster() *Cluster {
-
 
 	cluster := &Cluster{
 		self: config.Properties.Self,
@@ -142,6 +143,7 @@ func (cluster *Cluster) Exec(c redis.Connection, cmdLine [][]byte) (result redis
 	if c != nil && c.InMultiState() {
 		return godis.EnqueueCmd(c, cmdLine)
 	}
+
 	cmdFunc, ok := router[cmdName]
 	if !ok {
 		return reply.MakeErrReply("ERR unknown command '" + cmdName + "', or not supported in cluster mode")
@@ -176,7 +178,7 @@ func (cluster *Cluster) groupKeysByPeer(keys []string) map[string][]string {
 	for _, key := range keys {
 		// 查找 key 归属的 peer (一致性哈希)
 		peer := cluster.peerPicker.PickNode(key)
-		// 把 key 添加到 peer 的查询列表中
+		// 把 key 添加到 peer 的分组中
 		group, ok := result[peer]
 		if !ok {
 			group = make([]string, 0)

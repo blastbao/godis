@@ -53,6 +53,9 @@ func MGet(cluster *Cluster, c redis.Connection, args [][]byte) redis.Reply {
 }
 
 // MSet atomically sets multi key-value in cluster, writeKeys can be distributed on any node
+//
+//
+//
 func MSet(cluster *Cluster, c redis.Connection, args [][]byte) redis.Reply {
 	// 参数检查
 	argCount := len(args) - 1
@@ -71,20 +74,26 @@ func MSet(cluster *Cluster, c redis.Connection, args [][]byte) redis.Reply {
 
 	// 根据 peer 分组
 	groupMap := cluster.groupKeysByPeer(keys)
+
+	// 若所有的 key 都在同一个节点，则直接执行，不使用较慢的 2pc 算法
 	if len(groupMap) == 1 && allowFastTransaction { // do fast
 		for peer := range groupMap {
 			return cluster.relay(peer, c, args)
 		}
 	}
 
-	//prepare
+	// prepare
+	// 开始准备阶段 ...
+
 	var errReply redis.Reply
 
 	// 事务 ID
-	txID := cluster.idGenerator.NextID()
+	txID := cluster.idGenerator.NextID()		// 协调者使用 snowflake 算法创建事务 ID
 	txIDStr := strconv.FormatInt(txID, 10)
 
 	rollback := false
+
+	// 向所有参与者发送 prepare 请求
 	for peer, group := range groupMap {
 
 		// 构造 prepare 命令参数
@@ -112,8 +121,7 @@ func MSet(cluster *Cluster, c redis.Connection, args [][]byte) redis.Reply {
 		}
 	}
 
-
-	// 需要回滚，则回滚
+	// 若 prepare 过程出错则执行回滚
 	if rollback {
 		requestRollback(cluster, c, txID, groupMap)		// rollback
 	// 不需回滚，则提交，若提交失败，则返回错误

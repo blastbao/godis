@@ -13,9 +13,12 @@ import (
 
 // EntityToCmd serialize data entity to redis command
 func EntityToCmd(key string, entity *database.DataEntity) *reply.MultiBulkReply {
+	// 参数检查
 	if entity == nil {
 		return nil
 	}
+
+	//
 	var cmd *reply.MultiBulkReply
 	switch val := entity.Data.(type) {
 	case []byte:
@@ -29,6 +32,7 @@ func EntityToCmd(key string, entity *database.DataEntity) *reply.MultiBulkReply 
 	case *SortedSet.SortedSet:
 		cmd = zSetToCmd(key, val)
 	}
+
 	return cmd
 }
 
