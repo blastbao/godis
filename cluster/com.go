@@ -41,7 +41,7 @@ func (cluster *Cluster) returnPeerClient(peer string, peerClient *client.Client)
 // cannot call Prepare, Commit, execRollback of self node
 func (cluster *Cluster) relay(peer string, c redis.Connection, args [][]byte) redis.Reply {
 
-	// 若数据在本地则直接调用数据库引擎
+	// 若为本地节点，则直接调用数据库引擎
 	if peer == cluster.self {
 		// to self db
 		return cluster.db.Exec(c, args)

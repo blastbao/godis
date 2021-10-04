@@ -9,7 +9,6 @@ import (
 // Del atomically removes given writeKeys from cluster, writeKeys can be distributed on any node
 // if the given writeKeys are distributed on different node, Del will use try-commit-catch to remove them
 func Del(cluster *Cluster, c redis.Connection, args [][]byte) redis.Reply {
-
 	// 参数检查
 	if len(args) < 2 {
 		return reply.MakeErrReply("ERR wrong number of arguments for 'del' command")

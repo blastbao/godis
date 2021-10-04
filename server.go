@@ -17,7 +17,6 @@ import (
 )
 
 
-
 type MultiDB struct {
 	dbSet []*DB
 
@@ -104,13 +103,17 @@ func (mdb *MultiDB) Exec(c redis.Connection, cmdLine [][]byte) (result redis.Rep
 
 	// special commands
 	// 特殊命令
+
+	// 订阅频道
 	if cmdName == "subscribe" {
 		if len(cmdLine) < 2 {
 			return reply.MakeArgNumErrReply("subscribe")
 		}
 		return pubsub.Subscribe(mdb.hub, c, cmdLine[1:])
+	// 发布消息到指定频道
 	} else if cmdName == "publish" {
 		return pubsub.Publish(mdb.hub, cmdLine[1:])
+	// 取消订阅
 	} else if cmdName == "unsubscribe" {
 		return pubsub.UnSubscribe(mdb.hub, c, cmdLine[1:])
 	} else if cmdName == "bgrewriteaof" {
@@ -120,13 +123,17 @@ func (mdb *MultiDB) Exec(c redis.Connection, cmdLine [][]byte) (result redis.Rep
 		return RewriteAOF(mdb, cmdLine[1:])
 	} else if cmdName == "flushall" {
 		return mdb.flushAll()
+	// 选择 DB
 	} else if cmdName == "select" {
+		// 状态检查
 		if c != nil && c.InMultiState() {
 			return reply.MakeErrReply("cannot select database within multi")
 		}
+		// 参数检查
 		if len(cmdLine) != 2 {
 			return reply.MakeArgNumErrReply("select")
 		}
+		// 执行 Select
 		return execSelect(c, mdb, cmdLine[1:])
 	}
 
@@ -196,10 +203,12 @@ func (mdb *MultiDB) ForEach(dbIndex int, cb func(key string, data *database.Data
 }
 
 func (mdb *MultiDB) ExecMulti(conn redis.Connection, watching map[string]uint32, cmdLines []CmdLine) redis.Reply {
+	// 选择 DB
 	if conn.GetDBIndex() >= len(mdb.dbSet) {
 		return reply.MakeErrReply("ERR DB index is out of range")
 	}
 	db := mdb.dbSet[conn.GetDBIndex()]
+	// 执行 Multi
 	return db.ExecMulti(conn, watching, cmdLines)
 }
 

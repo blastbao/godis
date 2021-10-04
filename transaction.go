@@ -7,21 +7,26 @@ import (
 	"strings"
 )
 
+
+// 在 Multi 过程中禁止执行的命令
 var forbiddenInMulti = set.Make(
 	"flushdb",
 	"flushall",
 )
 
 // Watch set watching keys
+//
 func Watch(db *DB, conn redis.Connection, args [][]byte) redis.Reply {
 	watching := conn.GetWatching()
-	for _, bkey := range args {
-		key := string(bkey)
+	// 保存每个 key 的版本号到 conn.Watching[][] 中
+	for _, arg := range args {
+		key := string(arg)
 		watching[key] = db.GetVersion(key)
 	}
 	return reply.MakeOkReply()
 }
 
+// 获取 key 的版本号，不存在返回 0
 func execGetVersion(db *DB, args [][]byte) redis.Reply {
 	key := string(args[0])
 	ver := db.GetVersion(key)
@@ -33,6 +38,8 @@ func init() {
 }
 
 // invoker should lock watching keys
+//
+// 检查 watching 的 keys 的版本号是否发生变化。
 func isWatchingChanged(db *DB, watching map[string]uint32) bool {
 	for key, ver := range watching {
 		currentVersion := db.GetVersion(key)
@@ -45,9 +52,11 @@ func isWatchingChanged(db *DB, watching map[string]uint32) bool {
 
 // StartMulti starts multi-command-transaction
 func StartMulti(conn redis.Connection) redis.Reply {
+	// Multi 命令不支持嵌套
 	if conn.InMultiState() {
 		return reply.MakeErrReply("ERR MULTI calls can not be nested")
 	}
+	// 设置 Multi 状态
 	conn.SetMultiState(true)
 	return reply.MakeOkReply()
 }
@@ -95,18 +104,24 @@ func (db *DB) ExecMulti(conn redis.Connection, watching map[string]uint32, cmdLi
 		writeKeys = append(writeKeys, write...)
 		readKeys = append(readKeys, read...)
 	}
+
 	// set watch
 	watchingKeys := make([]string, 0, len(watching))
 	for key := range watching {
 		watchingKeys = append(watchingKeys, key)
 	}
 	readKeys = append(readKeys, watchingKeys...)
+
+
+	// 锁住
 	db.RWLocks(writeKeys, readKeys)
 	defer db.RWUnLocks(writeKeys, readKeys)
 
-	if isWatchingChanged(db, watching) { // watching keys changed, abort
-		return reply.MakeEmptyMultiBulkReply()
+	// 检查 watching 的 keys 的版本号是否发生变化。
+	if isWatchingChanged(db, watching) {
+		return reply.MakeEmptyMultiBulkReply() // watching keys changed, abort
 	}
+
 	// execute
 	results := make([]redis.Reply, 0, len(cmdLines))
 	aborted := false
@@ -142,10 +157,16 @@ func (db *DB) ExecMulti(conn redis.Connection, watching map[string]uint32, cmdLi
 
 // DiscardMulti drops MULTI pending commands
 func DiscardMulti(conn redis.Connection) redis.Reply {
+
+	// 只能在 Multi 状态下执行 Discard
 	if !conn.InMultiState() {
 		return reply.MakeErrReply("ERR DISCARD without MULTI")
 	}
+
+	// 清除状态
 	conn.ClearQueuedCmds()
+
+	// 清除 Multi 状态
 	conn.SetMultiState(false)
 	return reply.MakeQueuedReply()
 }

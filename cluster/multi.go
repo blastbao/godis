@@ -15,10 +15,14 @@ var relayMultiBytes = []byte(relayMulti)
 
 // cmdLine == []string{"exec"}
 func execMulti(cluster *Cluster, conn redis.Connection, cmdLine CmdLine) redis.Reply {
+	// 只能在 Multi 状态下执行 Exec 命令
 	if !conn.InMultiState() {
 		return reply.MakeErrReply("ERR EXEC without MULTI")
 	}
+	// 执行结束后，清除 Multi 状态
 	defer conn.SetMultiState(false)
+
+	//
 	cmdLines := conn.GetQueuedCmdLine()
 
 	// analysis related keys
@@ -28,6 +32,7 @@ func execMulti(cluster *Cluster, conn redis.Connection, cmdLine CmdLine) redis.R
 		keys = append(keys, wKeys...)
 		keys = append(keys, rKeys...)
 	}
+
 	watching := conn.GetWatching()
 	watchingKeys := make([]string, 0, len(watching))
 	for key := range watching {
@@ -38,10 +43,13 @@ func execMulti(cluster *Cluster, conn redis.Connection, cmdLine CmdLine) redis.R
 		// empty transaction or only `PING`s
 		return cluster.db.ExecMulti(conn, watching, cmdLines)
 	}
+
+
 	groupMap := cluster.groupKeysByPeer(keys)
 	if len(groupMap) > 1 {
 		return reply.MakeErrReply("ERR MULTI commands transaction must within one slot in cluster mode")
 	}
+
 	var peer string
 	// assert len(groupMap) == 1
 	for p := range groupMap {
@@ -52,14 +60,18 @@ func execMulti(cluster *Cluster, conn redis.Connection, cmdLine CmdLine) redis.R
 	if peer == cluster.self {
 		return cluster.db.ExecMulti(conn, watching, cmdLines)
 	}
+
+
 	return execMultiOnOtherNode(cluster, conn, peer, watching, cmdLines)
 }
 
 func execMultiOnOtherNode(cluster *Cluster, conn redis.Connection, peer string, watching map[string]uint32, cmdLines []CmdLine) redis.Reply {
+
 	defer func() {
 		conn.ClearQueuedCmds()
 		conn.SetMultiState(false)
 	}()
+
 	relayCmdLine := [][]byte{ // relay it to executing node
 		relayMultiBytes,
 	}

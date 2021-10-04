@@ -59,30 +59,30 @@ func MakeCluster() *Cluster {
 		idGenerator: idgenerator.MakeGenerator(config.Properties.Self),
 	}
 
-
-	contains := make(map[string]struct{})
-	nodes := make([]string, 0, len(config.Properties.Peers)+1)
-
+	// 汇总所有 peers (去重)
+	exists := make(map[string]struct{})
+	peers := make([]string, 0, len(config.Properties.Peers)+1)
 	for _, peer := range config.Properties.Peers {
-		if _, ok := contains[peer]; ok {
+		if _, ok := exists[peer]; ok {
 			continue
 		}
-		contains[peer] = struct{}{}
-		nodes = append(nodes, peer)
+		exists[peer] = struct{}{}
+		peers = append(peers, peer)
 	}
+	peers = append(peers, config.Properties.Self)
 
-	nodes = append(nodes, config.Properties.Self)
-	cluster.peerPicker.AddNode(nodes...)
-	ctx := context.Background()
+	// 将 peers 添加到一致性 hash 环中
+	cluster.peerPicker.AddNode(peers...)
 
 	// 为每个 peer 创建连接池
+	ctx := context.Background()
 	for _, peer := range config.Properties.Peers {
 		cluster.peerConnection[peer] = pool.NewObjectPoolWithDefaultConfig(ctx, &connectionFactory{
 			Peer: peer,
 		})
 	}
 
-	cluster.nodes = nodes
+	cluster.nodes = peers
 	return cluster
 }
 
@@ -96,6 +96,7 @@ func (cluster *Cluster) Close() {
 
 var router = makeRouter()
 
+// 校验密码
 func isAuthenticated(c redis.Connection) bool {
 	if config.Properties.RequirePass == "" {
 		return true
@@ -111,44 +112,60 @@ func (cluster *Cluster) Exec(c redis.Connection, cmdLine [][]byte) (result redis
 			result = &reply.UnknownErrReply{}
 		}
 	}()
+
+	// 提取 Cmd
 	cmdName := strings.ToLower(string(cmdLine[0]))
+
+	// 执行 Auth
 	if cmdName == "auth" {
 		return godis.Auth(c, cmdLine[1:])
 	}
+
+	// 鉴权
 	if !isAuthenticated(c) {
 		return reply.MakeErrReply("NOAUTH Authentication required")
 	}
 
+	// 执行 Multi
 	if cmdName == "multi" {
 		if len(cmdLine) != 1 {
 			return reply.MakeArgNumErrReply(cmdName)
 		}
 		return godis.StartMulti(c)
+	// 执行 Discard
 	} else if cmdName == "discard" {
 		if len(cmdLine) != 1 {
 			return reply.MakeArgNumErrReply(cmdName)
 		}
 		return godis.DiscardMulti(c)
+	// 执行 Exec
 	} else if cmdName == "exec" {
 		if len(cmdLine) != 1 {
 			return reply.MakeArgNumErrReply(cmdName)
 		}
 		return execMulti(cluster, c, nil)
+	// 执行 Select
 	} else if cmdName == "select" {
 		if len(cmdLine) != 2 {
 			return reply.MakeArgNumErrReply(cmdName)
 		}
 		return execSelect(c, cmdLine)
 	}
+
+	//
 	if c != nil && c.InMultiState() {
 		return godis.EnqueueCmd(c, cmdLine)
 	}
 
+	// 其它 Cmd
 	cmdFunc, ok := router[cmdName]
 	if !ok {
 		return reply.MakeErrReply("ERR unknown command '" + cmdName + "', or not supported in cluster mode")
 	}
+
+	// 执行 Cmd
 	result = cmdFunc(cluster, c, cmdLine)
+
 	return
 }
 
@@ -163,6 +180,7 @@ func ping(cluster *Cluster, c redis.Connection, cmdLine CmdLine) redis.Reply {
 
 /*----- utils -------*/
 
+// 参数格式转换: []byte{cmd, args...}
 func makeArgs(cmd string, args ...string) [][]byte {
 	result := make([][]byte, len(args)+1)
 	result[0] = []byte(cmd)
@@ -172,7 +190,9 @@ func makeArgs(cmd string, args ...string) [][]byte {
 	return result
 }
 
-// return peer -> writeKeys
+// return peer -> keys
+//
+// 把 keys 按 peer 分组
 func (cluster *Cluster) groupKeysByPeer(keys []string) map[string][]string {
 	result := make(map[string][]string)
 	for _, key := range keys {
@@ -189,14 +209,19 @@ func (cluster *Cluster) groupKeysByPeer(keys []string) map[string][]string {
 	return result
 }
 
+// 执行 select db
 func execSelect(c redis.Connection, args [][]byte) redis.Reply {
+	// 参数转换
 	dbIndex, err := strconv.Atoi(string(args[1]))
 	if err != nil {
 		return reply.MakeErrReply("ERR invalid DB index")
 	}
+	// 参数检查
 	if dbIndex >= config.Properties.Databases {
 		return reply.MakeErrReply("ERR DB index is out of range")
 	}
+	// 执行 select db
 	c.SelectDB(dbIndex)
+	// 返回响应
 	return reply.MakeOkReply()
 }

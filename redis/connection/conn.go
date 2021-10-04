@@ -20,6 +20,8 @@ type Session struct {
 	mu sync.Mutex
 
 	// subscribing channels
+	//
+	// 保存本会话订阅的频道
 	subs map[string]bool
 
 	// password may be changed by CONFIG command during runtime, so store the password
@@ -28,7 +30,7 @@ type Session struct {
 	// queued commands for `multi`
 	multiState bool
 	queue      [][][]byte
-	watching   map[string]uint32
+	watching   map[string]uint32	// 保存每个 watching key 的版本号
 
 	// selected db
 	selectedDB int
@@ -78,18 +80,24 @@ func (c *Session) Write(b []byte) error {
 }
 
 // Subscribe add current connection into subscribers of the given channel
+//
+// 订阅频道
 func (c *Session) Subscribe(channel string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// 保存本会话订阅的所有频道
 	if c.subs == nil {
 		c.subs = make(map[string]bool)
 	}
 
+	// 订阅 channel 频道
 	c.subs[channel] = true
 }
 
 // UnSubscribe removes current connection into subscribers of the given channel
+//
+// 取消订阅频道
 func (c *Session) UnSubscribe(channel string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -101,11 +109,15 @@ func (c *Session) UnSubscribe(channel string) {
 }
 
 // SubsCount returns the number of subscribing channels
+//
+// 订阅的频道总数
 func (c *Session) SubsCount() int {
 	return len(c.subs)
 }
 
 // GetChannels returns all subscribing channels
+//
+// 获取所有的订阅频道
 func (c *Session) GetChannels() []string {
 	if c.subs == nil {
 		return make([]string, 0)
