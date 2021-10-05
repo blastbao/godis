@@ -12,6 +12,7 @@ func readFirstKey(args [][]byte) ([]string, []string) {
 	return nil, []string{key}
 }
 
+// 取 args[0]
 func writeFirstKey(args [][]byte) ([]string, []string) {
 	key := string(args[0])
 	return []string{key}, nil
@@ -44,12 +45,21 @@ func rollbackFirstKey(db *DB, args [][]byte) []CmdLine {
 
 func rollbackGivenKeys(db *DB, keys ...string) []CmdLine {
 	var undoCmdLines [][][]byte
+	// 遍历所有 keys
 	for _, key := range keys {
+		// 取 key 的当前值
 		entity, ok := db.GetEntity(key)
+		// 若 key 不存在，它的回滚操作即: "DEL key"
 		if !ok {
 			undoCmdLines = append(undoCmdLines,
 				utils.ToCmdLine("DEL", key),
 			)
+		// 若 key 已存在，它的回滚操作即:
+		//   a. DEL key
+		//   b. SET key origin_value
+		//   c. PEXPIREAT key timestamp
+		// 也即: 先删、恢复旧值、设置超时
+		// (为啥要先删除呢？直接覆盖不行吗？)
 		} else {
 			undoCmdLines = append(undoCmdLines,
 				utils.ToCmdLine("DEL", key), // clean existed first
@@ -147,22 +157,31 @@ func undoSetChange(db *DB, args [][]byte) []CmdLine {
 
 func rollbackZSetFields(db *DB, key string, fields ...string) []CmdLine {
 	var undoCmdLines [][][]byte
+
+	// 获取 key 关联的 zset
 	zset, errReply := db.getAsSortedSet(key)
 	if errReply != nil {
 		return nil
 	}
+
+	// 如果 key 不存在，则它的回滚命令为 "DEL key"
 	if zset == nil {
 		undoCmdLines = append(undoCmdLines,
 			utils.ToCmdLine("DEL", key),
 		)
 		return undoCmdLines
 	}
+
+	// 如果 key 存在，则检查 fields 是否存在
 	for _, field := range fields {
 		elem, ok := zset.Get(field)
+
+		// 如果 field 不存在，其回滚操作为 "ZREM key field"
 		if !ok {
 			undoCmdLines = append(undoCmdLines,
 				utils.ToCmdLine("ZREM", key, field),
 			)
+		// 如果 field 已存在，其回滚操作为 "ZADD key origin_score origin_field"
 		} else {
 			score := strconv.FormatFloat(elem.Score, 'f', -1, 64)
 			undoCmdLines = append(undoCmdLines,

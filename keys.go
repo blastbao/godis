@@ -291,13 +291,20 @@ func execKeys(db *DB, args [][]byte) redis.Reply {
 }
 
 func toTTLCmd(db *DB, key string) *reply.MultiBulkReply {
+	// 获取 key 的 ttl
 	raw, exists := db.ttlMap.Get(key)
+
+	// 若不存在则返回 "PERSIST key" ，不过期
 	if !exists {
 		// 无 TTL
 		return reply.MakeMultiBulkReply(utils.ToCmdLine("PERSIST", key))
 	}
+
+	// 转换成绝对时间戳
 	expireTime, _ := raw.(time.Time)
-	timestamp := strconv.FormatInt(expireTime.UnixNano()/1000/1000, 10)
+	timestamp := strconv.FormatInt(expireTime.UnixNano()/1000/1000, 10) // ns => ms
+
+	// 返回 "PEXPIREAT key timestamp"
 	return reply.MakeMultiBulkReply(utils.ToCmdLine("PEXPIREAT", key, timestamp))
 }
 

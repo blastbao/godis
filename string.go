@@ -48,8 +48,6 @@ const unlimitedTTL int64 = 0
 // execSet sets string value and time to live to the given key
 func execSet(db *DB, args [][]byte) redis.Reply {
 
-
-
 	key := string(args[0])
 	value := args[1]
 	policy := upsertPolicy
