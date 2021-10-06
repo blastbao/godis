@@ -19,7 +19,9 @@ var (
 // Publish broadcasts msg to all peers in cluster when receive publish command from client
 func Publish(cluster *Cluster, c redis.Connection, args [][]byte) redis.Reply {
 	var count int64 = 0
+	// 广播 Publish 请求到集群中每个节点
 	results := cluster.broadcast(c, args)
+	// 汇总成功通知的订阅者 subscribers 总数
 	for _, val := range results {
 		if errReply, ok := val.(reply.ErrorReply); ok {
 			logger.Error("publish occurs error: " + errReply.Error())
@@ -27,6 +29,7 @@ func Publish(cluster *Cluster, c redis.Connection, args [][]byte) redis.Reply {
 			count += intReply.Code
 		}
 	}
+	// 返回 subscribers 总数
 	return reply.MakeIntReply(count)
 }
 

@@ -184,11 +184,13 @@ func DiscardMulti(conn redis.Connection) redis.Reply {
 		return reply.MakeErrReply("ERR DISCARD without MULTI")
 	}
 
-	// 清除状态
+	// 清除缓存的 Cmds
 	conn.ClearQueuedCmds()
 
 	// 清除 Multi 状态
 	conn.SetMultiState(false)
+
+	// 响应
 	return reply.MakeQueuedReply()
 }
 

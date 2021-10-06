@@ -83,7 +83,7 @@ func (m *Map) PickNode(key string) string {
 	hash := int(m.hashFunc([]byte(partitionKey)))
 
 	// Binary search for appropriate replica.
-	// 二分查找，找到其归属的区间
+	// 二分查找，找到哈希环上 key 归属的区间
 	idx := sort.Search(len(m.keys), func(i int) bool { return m.keys[i] >= hash })
 
 	// Means we have cycled back to the first replica.

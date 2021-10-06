@@ -138,9 +138,9 @@ func (client *Client) handleWrite() {
 func (client *Client) Send(args [][]byte) redis.Reply {
 	// 构造请求
 	req := &request{
-		args:      args,
-		heartbeat: false,
-		waiting:   &wait.Wait{},
+		args:      args,			// 请求参数
+		heartbeat: false,			// 非心跳包
+		waiting:   &wait.Wait{},	// 用于同步等待响应的 WaitGroup
 	}
 	req.waiting.Add(1)
 

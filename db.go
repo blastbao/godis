@@ -238,7 +238,6 @@ func (db *DB) Flush() {
 	db.data.Clear()
 	db.ttlMap.Clear()
 	db.locker = lock.Make(lockerSize)
-
 }
 
 /* ---- Lock Function ----- */

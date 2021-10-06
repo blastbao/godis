@@ -10,6 +10,8 @@ const (
 )
 
 // Locks provides rw locks for key
+//
+// 读写锁列表
 type Locks struct {
 	table []*sync.RWMutex
 }
@@ -25,6 +27,7 @@ func Make(tableSize int) *Locks {
 	}
 }
 
+// Hash(key)
 func fnv32(key string) uint32 {
 	hash := uint32(2166136261)
 	for i := 0; i < len(key); i++ {
@@ -71,26 +74,35 @@ func (locks *Locks) RUnLock(key string) {
 }
 
 func (locks *Locks) toLockIndices(keys []string, reverse bool) []uint32 {
+
+	// 保存 keys => indexes ，这里用 map 的目的是因为可能有重复的 index ，用 map 直接去重了
 	indexMap := make(map[uint32]bool)
 	for _, key := range keys {
 		index := locks.spread(fnv32(key))
 		indexMap[index] = true
 	}
+
+	// convert from map to slice
 	indices := make([]uint32, 0, len(indexMap))
 	for index := range indexMap {
 		indices = append(indices, index)
 	}
+
+	// Sort in desc/asc
 	sort.Slice(indices, func(i, j int) bool {
 		if !reverse {
 			return indices[i] < indices[j]
 		}
 		return indices[i] > indices[j]
 	})
+
 	return indices
 }
 
 // Locks obtains multiple exclusive locks for writing
 // invoking Lock in loop may cause dead lock, please use Locks
+//
+//
 func (locks *Locks) Locks(keys ...string) {
 	indices := locks.toLockIndices(keys, false)
 	for _, index := range indices {

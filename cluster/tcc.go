@@ -44,20 +44,13 @@ import (
 // b. 无法保证一致性: 若协调者第二阶段发送提交请求时崩溃，可能部分参与者受到 COMMIT 请求提交了事务，而另一部分参与者未受到请求而放弃事务造成不一致现象。
 // c. 阻塞: 为了保证事务完成提交，各参与者在完成第一阶段事务执行后必须锁定相关资源直到正式提交，影响系统的吞吐量。
 
-
-
-
-
-
-
-
 // Transaction stores state and data for a try-commit-catch distributed transaction
 type Transaction struct {
-	id      string  			// 事务 ID ，由 snowflake 算法生成
+	id      string  			// 事务 ID ，由协调者在创建事务时，用 snowflake 算法生成
 	cmdLine [][]byte 			// 命令及参数
 	cluster *Cluster			// 集群
-	conn    redis.Connection	// 连接
-	dbIndex int					// DB
+	conn    redis.Connection	// 客户端连接
+	dbIndex int					// DB Index
 
 	writeKeys  []string			// 事务中涉及的写 keys
 	readKeys   []string			// 事务中涉及的读 keys

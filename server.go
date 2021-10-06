@@ -16,6 +16,7 @@ import (
 	"time"
 )
 
+// [核心对象]
 
 type MultiDB struct {
 	dbSet []*DB
@@ -79,7 +80,11 @@ func MakeBasicMultiDB() *MultiDB {
 
 // Exec executes command
 // parameter `cmdLine` contains command and its arguments, for example: "set key value"
+//
+//
+// [核心]
 func (mdb *MultiDB) Exec(c redis.Connection, cmdLine [][]byte) (result redis.Reply) {
+
 	// 捕获 Panic
 	defer func() {
 		if err := recover(); err != nil {
